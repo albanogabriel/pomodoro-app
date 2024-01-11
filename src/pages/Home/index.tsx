@@ -1,26 +1,47 @@
-import { Play } from 'phosphor-react'
-import { useForm } from 'react-hook-form'
+import { HandPalm, Play } from 'phosphor-react'
+import * as zod from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { FormProvider, useForm } from 'react-hook-form'
 
 import {
-  CountdownContainer,
-  FormContainer,
   HomeContainer,
-  MinutesAmountInput,
-  Separator,
-  StartCountDownButton,
-  TaskInput,
+  StartCountdownButton,
+  StopCountdownButton,
 } from './styles'
 
-// FORM - trabalhar com formulários:
-// controlled / uncontrolled
-// controlled -> manter em tempo real o estado a informação que o usuário insere na aplicação dentro do estado, de uma variável de nosso componente, toda vez que ele escrever um novo texto no input eu atualizo uma informação no estado contendo esse novo valor para que então a gente possa ter o valor atualizado do que o usuário digitou no input
-// uncontrolled ->
+import { NewCycleForm } from './components/NewCycleForm'
+import { Countdown } from './components/Countdown'
+import { useContext } from 'react'
+import { CyclesContext } from '../../contexts/CyclesContext'
+
+const newCycleFormValidationSchema = zod.object({
+  task: zod.string().min(1, 'informe a tarefa'),
+  owner: zod.string().optional(),
+  minutesAmount: zod
+    .number()
+    .min(5, 'precisa ser maior que 5')
+    .max(60, 'precisa ser menor que 60'),
+})
+
+type NewCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
 
 export function Home() {
-  const { register, handleSubmit, watch } = useForm()
+  const { activeCycle, createNewCycle, interruptCurrentCycle } =
+    useContext(CyclesContext)
 
-  function handleCreateNewCycle(data: unknown) {
-    console.log(data)
+  const newCycleForm = useForm<NewCycleFormData>({
+    resolver: zodResolver(newCycleFormValidationSchema),
+    defaultValues: {
+      task: '',
+      minutesAmount: 0,
+    },
+  })
+
+  const { handleSubmit, watch, reset } = newCycleForm
+
+  function handleCreateNewCycle(data: NewCycleFormData) {
+    createNewCycle(data)
+    reset()
   }
 
   const task = watch('task')
@@ -29,47 +50,21 @@ export function Home() {
   return (
     <HomeContainer>
       <form onSubmit={handleSubmit(handleCreateNewCycle)} action="">
-        <FormContainer>
-          <label htmlFor="task">Vou trabalhar em</label>
-          <TaskInput
-            id="task"
-            list="task-suggestions"
-            placeholder="Dê um nome para o seu projeto"
-            {...register('task')}
-          />
+        <FormProvider {...newCycleForm}>
+          {/* Spread Operator -> pego cada uma das propriedades desse objeto newCycleForm eu passo como uma props/propriedade para esse component formContext -> é uma forma automática de ao invés passar cada propriedade indídual: register={register} watch={watch} reset={reset} = {...newCycleForm } */}
+          <NewCycleForm />
+        </FormProvider>
+        <Countdown />
 
-          <datalist id="task-suggestions">
-            <option value="Projeto 1" />
-            <option value="Projeto 2" />
-            <option value="Projeto 3" />
-          </datalist>
-
-          <label htmlFor="">Durante</label>
-
-          <MinutesAmountInput
-            type="number"
-            id="minutesAmount"
-            placeholder="00"
-            step={5} // pula de 5 em 5
-            min={5}
-            max={60}
-            {...register('minutesAmount', { valueAsNumber: true })}
-          />
-
-          <span>minutos.</span>
-        </FormContainer>
-
-        <CountdownContainer>
-          <span>0</span>
-          <span>0</span>
-          <Separator>:</Separator>
-          <span>0</span>
-          <span>0</span>
-        </CountdownContainer>
-
-        <StartCountDownButton disabled={taskValueInputIsEmpty} type="submit">
-          <Play size={24} /> Começar
-        </StartCountDownButton>
+        {activeCycle ? (
+          <StopCountdownButton onClick={interruptCurrentCycle} type="button">
+            <HandPalm size={24} /> Pausar o ciclo
+          </StopCountdownButton>
+        ) : (
+          <StartCountdownButton disabled={taskValueInputIsEmpty} type="submit">
+            <Play size={24} /> Começar
+          </StartCountdownButton>
+        )}
       </form>
     </HomeContainer>
   )
